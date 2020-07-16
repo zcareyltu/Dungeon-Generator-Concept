@@ -203,7 +203,7 @@ function createDungeon(opts) {
     dungeon = emplace_rooms(dungeon);
     dungeon = open_rooms(dungeon);
     dungeon = label_rooms(dungeon);
-    //dungeon = corridors(dungeon);
+    dungeon = corridors(dungeon);
     //dungeon = emplace_stairs(dungeon) if (dungeon->{'add_stairs'});
     //dungeon = clean_dungeon(dungeon);
 
@@ -787,7 +787,8 @@ function corridors(dungeon){
 function tunnel(dungeon, i, j, last_dir){
     var dirs = tunnel_dirs(dungeon, last_dir);
   
-    for (var dir in dirs){
+    for (var dirKey in dirs){
+        var dir = dirs[dirKey];
         if (open_tunnel(dungeon, i, j, dir)) {
             var next_i = i + di[dir];
             var next_j = j + dj[dir];
@@ -801,7 +802,8 @@ function tunnel(dungeon, i, j, last_dir){
 
 function tunnel_dirs(dungeon, last_dir){
     var p = corridor_layout[dungeon['corridor_layout']];
-    var dirs = shuffle(dj_dirs);
+    var dirs = dj_dirs.slice(); //shuffle(dj_dirs);
+    //console.log("add back in");
   
     if (last_dir && p) {
         if (random(100) < p) unshift(dirs, last_dir);
@@ -814,8 +816,8 @@ function open_tunnel(dungeon, i, j, dir){
     var this_c = (j * 2) + 1;
     var next_r = ((i + di[dir]) * 2) + 1;
     var next_c = ((j + dj[dir]) * 2) + 1;
-    var mid_r = Math.floor((this_r + next_r) / 2);
-    var mid_c = Math.floor((this_c + next_c) / 2);
+    var mid_r = (this_r + next_r) / 2;
+    var mid_c = (this_c + next_c) / 2;
   
     if (sound_tunnel(dungeon, mid_r, mid_c, next_r, next_c)) {
         return delve_tunnel(dungeon, this_r, this_c, next_r, next_c);

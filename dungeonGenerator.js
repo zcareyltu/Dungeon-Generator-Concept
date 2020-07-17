@@ -1,5 +1,6 @@
 //================Configuration============
 var dungeon_layout = {
+    'Full':     [[1,1,1],[1,1,1],[1,1,1]],
     'Box':      [[1,1,1],[1,0,1],[1,1,1]],
     'Cross':    [[0,1,0],[1,1,1],[0,1,0]]
 };
@@ -12,9 +13,9 @@ var corridor_layout = {
 
 var map_style = {
     'Standard': {
-      'fill':      '000000',
-      'open':      'FFFFFF',
-      'open_grid': 'CCCCCC',
+      'fill':      [0, 0, 0],
+      'open':      [255, 255, 255],
+      'open_grid': [204, 204, 204]
     }
   };
 //=========================================
@@ -139,7 +140,7 @@ function GenerateDungeon() {
     opts['corridor_layout'] = 'Bent';
     opts['remove_deadends'] = 50; //Percentage
     opts['cell_size'] = 18; //Pixels
-
+    opts['map_style'] = 'Standard';
     
 
     var dungeon = createDungeon(opts);
@@ -1243,9 +1244,9 @@ function base_layer(dungeon, image, g){
         fill(ctx, 0, 0, pal['white']); //$ih->fill(0,0,$pal->{'white'});
     //}
     if (color = pal['open_grid']) {
-        //TODO $ih = &image_grid($dungeon,$image,$color,$ih);
+        g = image_grid(dungeon, image, color, g);
     } else if (color = pal['grid']) {
-        //TODO $ih = &image_grid($dungeon,$image,$color,$ih);
+        g = image_grid(dungeon, image, color, g);
     }
     //var base = $ih->clone();
   
@@ -1257,6 +1258,29 @@ function base_layer(dungeon, image, g){
     }
 
     return canvas;//base;
+}
+
+function image_grid(dungeon, image, color, g) {
+    if (dungeon['grid'] == 'None') {
+        //No grid
+    } else if (dungeon['grid'] == 'Hex') {
+        //g = &hex_grid($dungeon,$image,$color,$ih);
+    } else {
+        g = square_grid(dungeon, image, color, g);
+    }
+    return g;
+}
+
+function square_grid(dungeon, image, color, g) {
+    var dim = image['cell_size'];
+
+    for (var x = 0; x <= image['max_x']; x += dim) {
+        line(g, x, 0, x, image['max_y'], color);
+    }
+    for (var y = 0; y <= image['max_y']; y += dim) {
+        line(g, 0, y, image['max_x'], y, color);
+    }
+    return g;
 }
 
 function line(g, x1, y1, x2, y2, color){

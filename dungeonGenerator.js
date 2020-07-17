@@ -1,34 +1,3 @@
-var testRands = [0,5,35,6,44,4,32,1,1,100,3,53,2,108,0,3,32,0,50,2,15,74,2,27,12,95,11,105,6,47,0,4,71,6,23,0,10,73,4,9,3,37,4,32,1,7,62,0,49,5,84,3,54];
-var nxtRand = 0;
-function getNextRand(){
-    return testRands[nxtRand++];
-}
-
-function printArray(arr){
-    console.log('[' + arr.join('\n') + ']');
-}
-
-function print2dArray(arr, i, j){
-    for(var r = 0; r <= i; r++){
-        var line = "";
-        for(var c = 0; c <= j; c++){
-            line += arr[r][c];
-            line += "\t";
-        }
-        //line += "\n";
-        console.log(line);
-    }
-    //console.log(line);
-}
-
-function printObj(obj){
-    var newObj = {};
-    for(var key in obj){
-        newObj[key] = obj[key];
-    }
-    console.log(newObj);
-}
-
 //================Configuration============
 var dungeon_layout = {
     'Box':      [[1,1,1],[1,0,1],[1,1,1]],
@@ -97,6 +66,13 @@ var dj = {
 
 var dj_dirs = sortKeys(dj);
 
+var opposite = {
+    'north': 'south',
+    'south': 'north',
+    'west': 'east',
+    'east': 'west'
+};
+
 //=========================================
 // cleaning
 
@@ -143,18 +119,28 @@ function btnClick() {
     GenerateDungeon();
 }
 
+function getDDV(id, defaultValue){
+    var e = document.getElementById(id);
+    var str = e.options[e.selectedIndex].value;
+
+    if(str) return str;
+    else return defaultValue;
+}
+
 function GenerateDungeon() {
     opts = {};
     opts['seed'] = Math.round(new Date().getTime() / 1000);
     opts['n_rows'] = 39; //Must be an odd number
     opts['n_cols'] = 39; //Must be an odd number
-    opts['dungeon_layout'] = 'Box'; //'Box';
+    opts['dungeon_layout'] = getDDV('dungeonLayout'); //'Box';
     opts['room_min'] = 3;
     opts['room_max'] = 9;
     opts['room_layout'] = 'Scattered'; //"Packed, scattered"
     opts['corridor_layout'] = 'Bent';
     opts['remove_deadends'] = 50; //Percentage
     opts['cell_size'] = 18; //Pixels
+
+    
 
     var dungeon = createDungeon(opts);
     displayDungeon(dungeon);
@@ -205,7 +191,7 @@ function createDungeon(opts) {
     dungeon = label_rooms(dungeon);
     dungeon = corridors(dungeon);
     //dungeon = emplace_stairs(dungeon) if (dungeon->{'add_stairs'});
-    //dungeon = clean_dungeon(dungeon);
+    dungeon = clean_dungeon(dungeon);
 
     
 
@@ -301,114 +287,9 @@ function pack_rooms(dungeon){
 //Scatter rooms randomly?
 function scatter_rooms(dungeon){
     var n_rooms = alloc_rooms(dungeon);
-  
-    var testRooms = [
-        {
-            'i': 4,
-            'j': 8,
-            'width': 5,
-            'height': 2
-        },
-        {
-            'i': 8,
-            'j': 11,
-            'width': 5,
-            'height': 4
-        },
-        {
-            'i': 16,
-            'j': 7,
-            'width': 3,
-            'height': 2
-        },
-        {
-            'i': 11,
-            'j': 4,
-            'width': 3,
-            'height': 3
-        },
-        {
-            'i': 8,
-            'j': 10,
-            'width': 4,
-            'height': 5
-        },
-        {
-            'i': 16,
-            'j': 6,
-            'width': 2,
-            'height': 2
-        },
-        {
-            'i': 4,
-            'j': 5,
-            'width': 5,
-            'height': 4
-        },
-        {
-            'i': 1,
-            'j': 14,
-            'width': 2,
-            'height': 2
-        },
-        {
-            'i': 12,
-            'j': 2,
-            'width': 3,
-            'height': 5
-        },
-        {
-            'i': 10,
-            'j': 14,
-            'width': 4,
-            'height': 2
-        },
-        {
-            'i': 8,
-            'j': 0,
-            'width': 4,
-            'height': 4
-        },
-        {
-            'i': 11,
-            'j': 0,
-            'width': 4,
-            'height': 3
-        },
-        {
-            'i': 7,
-            'j': 8,
-            'width': 3,
-            'height': 2
-        },
-        {
-            'i': 5,
-            'j': 7,
-            'width': 5,
-            'height': 5
-        },
-        {
-            'i': 6,
-            'j': 13,
-            'width': 4,
-            'height': 3
-        },
-        {
-            'i': 4,
-            'j': 12,
-            'width': 4,
-            'height': 3
-        },
-        {
-            'i': 11,
-            'j': 11,
-            'width': 3,
-            'height': 5
-        }
-    ];
 
     for (var i = 0; i < n_rooms; i++) {
-        dungeon = emplace_room(dungeon, testRooms[i]/*{}*/);
+        dungeon = emplace_room(dungeon, {});
     }
 
     return dungeon;
@@ -424,8 +305,7 @@ function emplace_room(dungeon, proto){
     //# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     //# room position and size
 
-    //proto = set_room(dungeon, proto); //TODO DID NOT ENSURE THIS FUNCTIOK WORKS PROPERLY
-    //console.log('add this back in, and remove temp randomness');
+    proto = set_room(dungeon, proto);
 
     //# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     //# room boundaries
@@ -594,11 +474,8 @@ function open_room(dungeon, room) {
     var n_opens = alloc_opens(dungeon, room);
     var cell = dungeon['cell'];
     for (var i = 0; i < n_opens; i++) {
-        var rand = getNextRand();
-        var sill = list.splice(rand/*random(@listlist.length)*/, 1)[0]; //console.log('add back in random');
+        var sill = list.splice(random(list.length), 1)[0]; 
         if(!sill) break; //last unless ($sill);
-//printObj(sill);
-//console.log("break\n\n");
         var door_r = sill['door_r'];
         var door_c = sill['door_c'];
         var door_cell = cell[door_r][door_c];
@@ -607,8 +484,8 @@ function open_room(dungeon, room) {
         var out_id = sill['out_id']; 
         if (out_id) {
             var connect = join(',',sortTwoValues(room['id'], out_id));
-            if(!('connect' in dungeon)) dungeon['connect'] = [];
-            if(!(connect in dungeon['connect'])) dungeon['connect'] = 0;
+            if(!('connect' in dungeon)) dungeon['connect'] = {};
+            if(!(connect in dungeon['connect'])) dungeon['connect'][connect] = 0;
             if(dungeon['connect'][connect]++) i--;
         }
 
@@ -704,8 +581,7 @@ function door_sills(dungeon, room){
         }
     }
 
-    //console.log(Add shuffle back in and remove sorting);
-    return list;//shuffle(list);
+    return shuffle(list);
 }
 
 function check_sill(cell, room, sill_r, sill_c, dir){
@@ -739,8 +615,7 @@ function alloc_opens(dungeon, room){
     var room_h = ((room['south'] - room['north']) / 2) + 1;
     var room_w = ((room['east'] - room['west']) / 2) + 1;
     var flumph = Math.floor(Math.sqrt(room_w * room_h));
-    var rand = getNextRand();
-    var n_opens = flumph + rand; //random(flumph); console.log(add this back in);
+    var n_opens = flumph + random(flumph); 
   
     return n_opens;
 }
@@ -802,8 +677,7 @@ function tunnel(dungeon, i, j, last_dir){
 
 function tunnel_dirs(dungeon, last_dir){
     var p = corridor_layout[dungeon['corridor_layout']];
-    var dirs = dj_dirs.slice(); //shuffle(dj_dirs);
-    //console.log("add back in");
+    var dirs = shuffle(dj_dirs.slice());
   
     if (last_dir && p) {
         if (random(100) < p) unshift(dirs, last_dir);
@@ -846,33 +720,47 @@ function remove_deadends(dungeon){
 
 function fix_doors(dungeon){
     var cell = dungeon['cell'];
-    var fixed;
+    var fixed = [];
   
-    for (var room in Object.values(dungeon['room'])) {
-        for (var dir in sortByKey(room['door'])) {
-            for(var door in room['door'][dir]){
+    for (var roomKey in dungeon['room']) {
+        var room = dungeon['room'][roomKey];
+        var sortedKeys = sortKeys(room['door']);
+        for (var dirKey in sortedKeys) {
+            var dir = sortedKeys[dirKey];
+            for(var doorKey in room['door'][dir]){
+                var door = room['door'][dir][doorKey];
+
                 var shiny = room['door'][dir][door];
+                if(!shiny) shiny = [];
                 var door_r = door['row'];
                 var door_c = door['col'];
                 var door_cell = cell[door_r][door_c];
                 if(!(door_cell & OPENSPACE)) continue;
   
-                 if (fixed[door_r][door_c]) {
+                 if ((fixed) && (door_r in fixed) && (door_c in fixed[door_r]) && (fixed[door_r][door_c])) {
                     shiny.push(door);
                  } else {
                     var out_id = door['out_id']; 
                     if (out_id) {
                         var out_dir = opposite[dir];
+                        if(!('room' in dungeon)) dungeon['room'] = {};
+                        if(!(out_id in dungeon['room'])) dungeon['room'] = {};
+                        if(!('door' in dungeon['room'][out_id])) dungeon['room'][out_id]['door'] = {};
+                        if(!(out_dir in dungeon['room'][out_id]['door'])) dungeon['room'][out_id]['door'][out_dir] = [];
                         dungeon['room'][out_id]['door'][out_dir].push(door);
                     }
                     shiny.push(door);
+                    if(!(door_r in fixed)) fixed[door_r] = [];
                     fixed[door_r][door_c] = 1;
                 }
             }
             
             if (shiny) {
                 room['door'][dir] = shiny;
-                dungeon['door'].push(shiny);
+                if(!('door' in dungeon)) dungeon['door'] = [];
+                for(var shinyKey in shiny){
+                    dungeon['door'].push(shiny[shinyKey]);
+                }
             } else {
                 delete room['door'][dir];
             }
@@ -902,8 +790,7 @@ function alloc_rooms(dungeon){
 }
 
 function doorType(){
-    //console.log('add back in');
-    var i = getNextRand(); //random(110);
+    var i = random(110);
 
     if (i < 15) {
         return ARCH;
@@ -948,6 +835,7 @@ function collapse(dungeon, r, c, xc){
       return dungeon;
     }
     for (var dir in xc) {
+        //var dir = xc[dirKey];
         if (check_tunnel(cell, r, c, xc[dir])) {
             for (var key in xc[dir]['close']) {
                 var p = xc[dir]['close'][key];
@@ -965,15 +853,14 @@ function collapse(dungeon, r, c, xc){
 }
 
 function shuffle(list) {
-    var a = list.splice();
     var j, x, i;
-    for(i = a.length - 1; i > 0; i--){
+    for(i = list.length - 1; i > 0; i--){
         j = random(i + 1);
-        x = a[i];
-        a[i] = a[j];
-        a[j] = x;
+        x = list[i];
+        list[i] = list[j];
+        list[j] = x;
     }
-    return a;
+    return list;
 }
 
 function sound_tunnel(dungeon, mid_r, mid_c, next_r, next_c){
@@ -1021,7 +908,8 @@ function delve_tunnel(dungeon, this_r, this_c, next_r, next_c){
 function check_tunnel(cell, r, c, check){
     var list;
   
-    if (list = check['corridor']) {
+    //Pretty sure for stairs
+    if (list = check['corridor']) { 
         for (var key in list) {
             var p = list[key];
             if(!(cell[r + p[0]][c + p[1]] == CORRIDOR)) return 0;
@@ -1067,7 +955,7 @@ function paintDungeon(image, g, dungeon){
     g = fill_image(dungeon, image, g);
     g = open_cells(dungeon, image, g);
     g = image_walls(dungeon, image, g);
-    //$ih = &image_doors($dungeon,$image,$ih);
+    g = image_doors(dungeon, image, g);
     //$ih = &image_labels($dungeon,$image,$ih);
 
     if (dungeon['stair']) {
@@ -1083,6 +971,148 @@ function paintDungeon(image, g, dungeon){
     //};
 
   return; //"$dungeon->{'seed'}.gif";
+}
+
+function image_doors(dungeon, image, g) {
+    var list = dungeon['door'];
+    if(!list) return g;
+
+    var cell = dungeon['cell'];
+    var dim = image['cell_size'];
+    var a_px = Math.floor(dim / 6);
+    var d_tx = Math.floor(dim / 4);
+    var t_tx = Math.floor(dim / 3);
+    var pal = image['palette'];
+    var arch_color = get_color(pal, 'wall');
+    var door_color = get_color(pal, 'door');
+
+    for (var doorKey in list) {
+        var door = list[doorKey];
+        var r = door['row'];
+        var y1 = r * dim;
+        var y2 = y1 + dim;
+        var c = door['col'];
+        var x1 = c * dim;
+        var x2 = x1 + dim;
+
+        var xc, yc;
+        if(cell[r][c-1] & OPENSPACE) {
+            xc = Math.floor((x1 + x2) / 2);
+        } else {
+            yc = Math.floor((y1 + y2) / 2);
+        }
+        var attr = door_attr(door);
+
+        if (('wall' in attr) && (attr['wall'])) {
+            if (xc) {
+                line(g, xc, y1, xc, y2, arch_color);
+            } else {
+                line(g, x1, yc, x2, yc, arch_color);
+            }
+        }
+
+        if (attr['secret']) {
+            if (xc) {
+                var yc = Math.floor((y1 + y2) / 2);
+
+                line(g, xc-1, yc-d_tx, xc+2, yc-d_tx, door_color);
+                line(g, xc-2, yc-d_tx+1, xc-2, yc-1, door_color);
+                line(g, xc-1, yc, xc+1, yc, door_color);
+                line(g, xc+2, yc+1, xc+2, yc+d_tx-1, door_color);
+                line(g, xc-2, yc+d_tx, xc+1, yc+d_tx, door_color);
+            } else {
+                var xc = Math.floor((x1 + x2) / 2);
+
+                line(g, xc-d_tx, yc-2, xc-d_tx, yc+1, door_color);
+                line(g, xc-d_tx+1, yc+2, xc-1, yc+2, door_color);
+                line(g, xc, yc-1, xc, yc+1, door_color);
+                line(g, xc+1, yc-2, xc+d_tx-1, yc-2, door_color);
+                line(g, xc+d_tx, yc-1, xc+d_tx, yc+2, door_color);
+            }
+        }
+        if (attr['arch']) {
+            if (xc) {
+                filledRectangle(g, xc-1, y1, xc+1, y1+a_px, arch_color);
+                filledRectangle(g, xc-1, y2-a_px, xc+1, y2, arch_color);
+            } else {
+                filledRectangle(g, x1, yc-1, x1+a_px, yc+1, arch_color);
+                filledRectangle(g, x2-a_px, yc-1, x2, yc+1, arch_color);
+            }
+        }
+        if (attr['door']) {
+            if (xc) {
+                rectangle(g, xc-d_tx, y1+a_px+1, xc+d_tx, y2-a_px-1, door_color);
+            } else {
+                rectangle(g, x1+a_px+1, yc-d_tx, x2-a_px-1, yc+d_tx, door_color);
+            }
+        }
+        if (attr['lock']) {
+            if (xc) {
+                line(g, xc, y1+a_px+1, xc, y2-a_px-1, door_color);
+            } else {
+                line(g, x1+a_px+1, yc, x2-a_px-1, yc, door_color);
+            }
+        }
+        if (attr['trap']) {
+            if (xc) {
+                var yc = Math.floor((y1 + y2) / 2);
+                line(g, xc-t_tx, yc, xc+t_tx, yc, door_color);
+            } else {
+                var xc = Math.floor((x1 + x2) / 2);
+                line(g, xc, yc-t_tx, xc, yc+t_tx, door_color);
+            }
+        }
+        if (attr['portc']) {
+            if (xc) {
+                for (var y = y1+a_px+2; y < y2-a_px; y += 2) {
+                    setPixel(g, xc, y, door_color);
+                }
+            } else {
+                for (var x = x1+a_px+2; x < x2-a_px; x += 2) {
+                    setPixel(g, x, yc, door_color);
+                }
+            }
+        }
+    }
+
+    return g;
+}
+
+function get_color(pal, key){
+    while(key){
+        if((key in pal) && (pal[key])) return pal[key];
+        else key = color_chain[key];
+    }
+    return undefined;
+}
+
+function door_attr(door){
+    var attr = {};
+
+    if(door['key'] == 'arch'){
+        attr['arch'] = 1;
+    } else if (door['key'] == 'open') {
+        attr['arch'] = 1; 
+        attr['door'] = 1;
+    } else if (door['key'] == 'lock') {
+        attr['arch'] = 1; 
+        attr['door'] = 1; 
+        attr['lock'] = 1;
+    } else if (door['key'] == 'trap') {
+        attr['arch'] = 1; 
+        attr['door'] = 1; 
+        attr['trap'] = 1;
+        //if (door['desc'] =~ /Lock/) attr['lock'] = 1;
+    } else if (door['key'] == 'secret') {
+        attr['wall'] = 1; 
+        attr['arch'] = 1;
+        attr['secret'] = 1;
+    } else if (door['key'] == 'portc') {
+        attr['arch'] = 1; 
+        attr['portc'] = 1;
+    }
+
+    return attr;
 }
 
 function open_cells(dungeon, image, g) {

@@ -12,7 +12,15 @@
         Dungeon Generator
     </h1>
 
-    <p id = "GFG_UP" style = "font-size: 15px; font-weight: bold;" ></p>
+    <!-- <p id = "GFG_UP" style = "font-size: 15px; font-weight: bold;" ></p> -->
+
+    <form action="/action_page.php">
+        <label for="dungeonLayout">Dungeon Layout:</label>
+        <select name="dungeonLayout" id="dungeonLayout">
+            <option value = "Box">Box</option>
+            <option value = "Cross">Cross</option>
+        </select>
+    </form>
 
     <button onclick = "btnClick()">
         Generate

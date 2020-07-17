@@ -1,3 +1,5 @@
+//https://donjon.bin.sh/d20/dungeon/
+//https://donjon.bin.sh/code/dungeon/dungeon.pl
 //================Configuration============
 var dungeon_layout = {
     'Full':     [[1,1,1],[1,1,1],[1,1,1]],

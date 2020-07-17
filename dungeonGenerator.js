@@ -1,5 +1,7 @@
+//Original code based on:
 //https://donjon.bin.sh/d20/dungeon/
 //https://donjon.bin.sh/code/dungeon/dungeon.pl
+
 //================Configuration============
 var dungeon_layout = {
     'Full':     [[1,1,1],[1,1,1],[1,1,1]],
@@ -138,9 +140,9 @@ function GenerateDungeon() {
     opts['dungeon_layout'] = getDDV('dungeonLayout'); //'Box';
     opts['room_min'] = 3;
     opts['room_max'] = 9;
-    opts['room_layout'] = 'Scattered'; //"Packed, scattered"
-    opts['corridor_layout'] = 'Bent';
-    opts['remove_deadends'] = 50; //Percentage
+    opts['room_layout'] = getDDV('roomLayout');
+    opts['corridor_layout'] = getDDV('corridorLayout');
+    opts['remove_deadends'] = parseInt(getDDV('removeDeadends')); //Percentage
     opts['cell_size'] = 18; //Pixels
     opts['map_style'] = 'Standard';
     

@@ -20,18 +20,21 @@ var options = {
     maxHeight: 8,
     padding: 2,
     maxDistance: 6,
-    numRooms: 10,
+    //numRooms: 10,
     numPlacementTries: 3
 };
 
 var rooms = [];
 
 function GenerateDungeon(){
+    rooms = [];
     startRoom = RoomFactory(-2, -2, 4, 4);
     startRoom.IsStart = true;
     rooms.push(startRoom);
 
-    for(var i = 0; i < options.numRooms; i++){
+    var numRooms = HTML.getListValue('numberRooms', 3);
+
+    for(var i = 0; i < numRooms; i++){
         var randWidth = nextInt(options.minWidth, options.maxWidth);
         var randHeight = nextInt(options.minHeight, options.maxHeight);
         var nextRoom = RoomFactory(0, 0, randWidth, randHeight);
@@ -268,6 +271,10 @@ function getDungeonBounds(){
 //Returns a random number between min and max, inclusive
 function nextInt(min, max){
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function btnClick(){
+    GenerateDungeon();
 }
 
 GenerateDungeon();

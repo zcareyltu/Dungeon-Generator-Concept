@@ -1,5 +1,13 @@
 (function (HTML) {
 
+    HTML.getListValue = function(id, defaultValue){
+        var e = document.getElementById(id);
+        var str = e.options[e.selectedIndex].value;
+
+        if(str) return str;
+        else return defaultValue;
+    };
+
     var img;
 
     HTML.displayCanvas = function(canvas, id){

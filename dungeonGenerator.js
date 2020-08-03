@@ -20,13 +20,14 @@ var options = {
     maxHeight: 8,
     padding: 2,
     maxDistance: 6,
-    numRooms: 10
+    numRooms: 10,
+    numPlacementTries: 3
 };
 
 var rooms = [];
 
 function GenerateDungeon(){
-    startRoom = RoomFactory(0, 0, 4, 4);
+    startRoom = RoomFactory(-2, -2, 4, 4);
     startRoom.IsStart = true;
     rooms.push(startRoom);
 
@@ -34,10 +35,22 @@ function GenerateDungeon(){
         var randWidth = nextInt(options.minWidth, options.maxWidth);
         var randHeight = nextInt(options.minHeight, options.maxHeight);
         var nextRoom = RoomFactory(0, 0, randWidth, randHeight);
-        PlaceRoom(nextRoom);
+
+        var bestScore = undefined;
+        var bestPos = undefined;
+        for (var j = 0; j < options.numPlacementTries; j++){
+            var pos = PlaceRoom(nextRoom);
+            var score = roomScore(nextRoom);
+            if((j == 0) || (score < bestScore)){
+                bestPos = pos;
+                bestScore = score;
+            }
+        }
+        nextRoom.X = bestPos.X;
+        nextRoom.Y = bestPos.Y;
+        rooms.push(nextRoom);
     }
 
-    console.log(rooms);
     RenderDungeon();
 }
 
@@ -52,14 +65,22 @@ function PlaceRoom(room){
             room.X = pos.X;
             room.Y = pos.Y;
             if(!roomCollides(room)){
-                //Room fits! add it to the list!
-                rooms.push(room);
-                return;
+                //Room fits!
+                return pos;
             }
 
             point = nextPerimeter(baseRoom, point);
         }while((point.X != firstPoint.X) || (point.Y != firstPoint.Y) || (point.Direction != firstPoint.Direction));
     }
+
+    throw 'A room SOMEHOW was unable to be placed. This should be impossible.';
+}
+
+//Return a score for how well the room was placed
+function roomScore(room){
+    var x = room.X + Math.floor(room.Width / 2);
+    var y = room.Y + Math.floor(room.Height / 2);
+    return x**2 + y**2;
 }
 
 //Returns true if the given room collides with any other room in the rooms list

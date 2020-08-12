@@ -21,18 +21,46 @@ var options = {
     padding: 2,
     maxDistance: 6,
     //numRooms: 10,
-    numPlacementTries: 3
+    numPlacementTries: 3,
+    maxNumCorridors: 4
 };
 
 var rooms = [];
 
 function GenerateDungeon(){
+    //Load options
+    options.numRooms = HTML.getListValue('numberRooms', 3);
+
+    GenerateRooms();
+    GenerateCorridors();
+    RenderDungeon();
+}
+
+function GenerateCorridors(){
+    for(var i in rooms){
+        var room = rooms[i];
+
+        //Choose a random number of cooridors from 1 to MAX
+        var numCorridors = nextInt(1, options.maxNumCorridors);
+
+        //If the current # of corridors is less than the random number, create a new one up to the number:
+        var corridorCount = room.Corridors.length;
+        for(var j = 0; j < numCorridors - corridorCount; j++){
+            //Each corridor must be a variable number of spaces away from a different corridor. Start at a random value and go clockwise until favorable conditions are met
+            //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
+            //"raycast" the corridor from the start point to the next room or corridor, up to a maximum length
+            //NOTE if raycast hits something, be sure the new connection is also meets the start point conditions
+        }
+    }  
+}
+
+function GenerateRooms(){
     rooms = [];
     startRoom = RoomFactory(-2, -2, 4, 4);
     startRoom.IsStart = true;
     rooms.push(startRoom);
 
-    var numRooms = HTML.getListValue('numberRooms', 3);
+    var numRooms = options.numRooms;
 
     for(var i = 0; i < numRooms; i++){
         var randWidth = nextInt(options.minWidth, options.maxWidth);
@@ -53,8 +81,6 @@ function GenerateDungeon(){
         nextRoom.Y = bestPos.Y;
         rooms.push(nextRoom);
     }
-
-    RenderDungeon();
 }
 
 function PlaceRoom(room){
@@ -198,7 +224,8 @@ function RoomFactory(x, y, w, h){
         'X': x,
         'Y': y,
         'Width': w,
-        'Height': h
+        'Height': h,
+        'Corridors': []
     };
 }
 

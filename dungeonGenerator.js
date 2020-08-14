@@ -22,10 +22,14 @@ var options = {
     maxDistance: 6,
     //numRooms: 10,
     numPlacementTries: 3,
-    maxNumCorridors: 4
+    maxNumCorridors: 4,
+    minCorridorGap: 2, //The minimum distance two corridors can be from each other when connecting to a room
+    maxCorridorLength: 10//,
+    //corridorWidth: 1
 };
 
 var rooms = [];
+var corridors = [];
 
 function GenerateDungeon(){
     //Load options
@@ -37,6 +41,7 @@ function GenerateDungeon(){
 }
 
 function GenerateCorridors(){
+    corridors = [];
     for(var i in rooms){
         var room = rooms[i];
 
@@ -46,19 +51,197 @@ function GenerateCorridors(){
         //If the current # of corridors is less than the random number, create a new one up to the number:
         var corridorCount = room.Corridors.length;
         for(var j = 0; j < numCorridors - corridorCount; j++){
-            //Each corridor must be a variable number of spaces away from a different corridor. Start at a random value and go clockwise until favorable conditions are met
-            //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
-            //"raycast" the corridor from the start point to the next room or corridor, up to a maximum length
-            //NOTE if raycast hits something, be sure the new connection is also meets the start point conditions
+            if(!PlaceCorridor(room)){
+                break;
+            }
         }
     }  
+}
+
+//Attempt to create a new corridor in the given room.
+function PlaceCorridor(room){
+    var point = randomPerimeter(room);
+    var startPoint = point;
+    //Can be optimized, but that will be done later
+    //Each corridor must be a variable number of spaces away from a different corridor. Start at a random value and go clockwise until favorable conditions are met
+    do{
+        var nextPoint = nextPerimeter(room, point);
+        if((point.Direction == nextPoint.Direction) && (isValidRoomCorridor(room, point, nextPoint))){
+            //"raycast" the corridor from the start point to the next room or corridor, up to a maximum length
+            //Both points are on the same side of the room (corridor can't be placed on a corner!)
+            hitLeft = raycast(point); //Returns Hit, Point, and Distance
+            hitRight = raycast(nextPoint);
+            //Both rays must hit the same target, and the same distance
+            if(hitLeft && hitRight && hitLeft.Hit === hitRight.Hit && hitLeft.Distance == hitRight.Distance){
+                //Check that the distance is within the options range
+                if(hitLeft.Distance <= options.maxCorridorLength){
+                    //NOTE if raycast hits something, be sure the new connection is also meets the start point conditions
+                    if('Corridors' in hitLeft.Hit){
+                        //We hit a room!
+                        if(isValidRoomCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
+                            var x = Math.min(point.X, nextPoint.X, hitLeft.X, hitRight.X);
+                            var y = Math.min(point.Y, nextPoint.Y, hitLeft.Y, hitRight.Y);
+                            var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.X));
+                            var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Y));
+
+                            var corridor = CorridorFactory(x, y, w, h);
+                            corridors.push(corridor);
+                            room.Corridors.push(corridor);
+                            return true;
+                        }
+                    }else{
+                        //We hit a corridor!
+                        if(isValidCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
+                            var x = Math.min(point.X, nextPoint.X, hitLeft.X, hitRight.X);
+                            var y = Math.min(point.Y, nextPoint.Y, hitLeft.Y, hitRight.Y);
+                            var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.X));
+                            var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Y));
+
+                            var corridor = CorridorFactory(x, y, w, h);
+                            corridors.push(corridor);
+                            room.Corridors.push(corridor);
+                            return true;
+                        } 
+                    }
+                }
+            }
+        }
+        point = nextPoint;
+    }while(point != startPoint); //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
+    
+    return false;
+}
+
+function isValidCorridor(corridor, p1, p2){
+    //Check that all corridors are a valid distance away from the selected points
+    return true; //Will this cause issues?
+}
+
+function isValidRoomCorridor(room, p1, p2){
+    //Check that all corridors are a valid distance away from the selected points
+    for(var i in room.Corridors){
+        var corridor = room.Corridors[i];
+        if(p1.Direction == "North" || p1.Direction == "South"){
+            var x1 = Math.min(p1.X, p2.X);
+            var x2 = Math.max(p1.X, p2.X);
+
+            var y = (p1.Direction == "North") ? (corridor.Y + corridor.Height) : corridor.Y;
+            if((y == p1.Y) && (x1 < corridor.X + corridor.Width + options.minCorridorGap) && (x2 > corridor.X - options.minCorridorGap)){
+                return false;
+            }
+        }else{
+            var y1 = Math.min(p1.Y, p2.Y);
+            var y2 = Math.max(p1.Y, p2.Y);
+
+            var x = (p1.Direction == "West") ? (corridor.X + corridor.Width) : corridor.X;
+            if((x == p1.X) && (y1 < corridor.Y + corridor.Height + options.minCorridorGap) && (y2 > corridor.Y - minCorridorGap)){
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+function raycast(startPoint){
+    var closestHit;
+    var closestPoint;
+
+    for(var i in rooms){
+        var room = rooms[i];
+        if(startPoint.Direction == "North"){
+            var y = room.Y + room.Height;
+            if((room.X <= startPoint.X) && ((room.X + room.Width) >= startPoint.X) && (y < startPoint.Y)){
+                if(!closestHit || (y > closestPoint.Y)){
+                    closestHit = room;
+                    closestPoint = {
+                        'X': startPoint.X,
+                        'Y': y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "South"){
+            var y = room.Y;
+            if((room.X <= startPoint.X) && ((room.X + room.Width) >= startPoint.X) && (y > startPoint.Y)){
+                if(!closestHit || (y < closestPoint.Y)){
+                    closestHit = room;
+                    closestPoint = {
+                        'X': startPoint.X,
+                        'Y': y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "West"){
+            var x = room.X + room.Width;
+            if((room.Y <= startPoint.Y) && ((room.Y + room.Height) >= startPoint.Y) && (x < startPoint.X)){
+                if(!closestHit || (x > closestPoint.X)){
+                    closestHit = room;
+                    closestPoint = {
+                        'X': x,
+                        'Y': startPoint.Y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "East"){
+            var x = room.X;
+            if((room.Y <= startPoint.Y) && ((room.Y + room.Height) >= startPoint.Y) && (x > startPoint.X)){
+                if(!closestHit || (x < closestPoint.X)){
+                    closestHit = room;
+                    closestPoint = {
+                        'X': x,
+                        'Y': startPoint.Y
+                    };
+                }
+            }
+        }else{
+            return null;
+        }
+    }
+
+    for(var i in corridors){
+        var corridor = corridors[i];
+    }
+
+    if(!closestPoint){
+        return null;
+    }else{
+        return {
+            'Hit': closestHit,
+            'Point': closestPoint,
+            'Distance': Math.abs(startPoint.X - closestPoint.X) + Math.abs(startPoint.Y - closestPoint.Y)
+        };
+    }
+}
+/*
+function IsValidCorridorLocation(room, position){
+    for(var i in room.Corridors){
+        var corridor = room.Corridors[i];
+        var maxPos = Math.max(position, corridor.Position);
+        var minPos = Math.min(position, corridor.Position);
+        if ( ((maxPos - minPos) < options.minCorridorGap)
+            || ((room.NumRoomPositions - maxPos + minPos) < options.minCorridorGap)
+        ){
+            return false;
+        }
+    }
+
+    return true;
+}
+*/
+function CorridorFactory(x, y, width, height){
+    return {
+        'X': x,
+        'Y': y,
+        'Width': width,
+        'Height': height
+    };
 }
 
 function GenerateRooms(){
     rooms = [];
     startRoom = RoomFactory(-2, -2, 4, 4);
     startRoom.IsStart = true;
-    rooms.push(startRoom);
+    rooms.push(startRoom);  
 
     var numRooms = options.numRooms;
 
@@ -191,32 +374,8 @@ function nextPerimeter(room, point){
 
 //Returns a random point on the perimeter of the room and a direction
 function randomPerimeter(room){
-    var rand = nextInt(0, (2 * room.Width) + (2 * room.Height) + 3);
-    if(rand <= room.Width){
-        return {
-            'X': room.X + rand,
-            'Y': room.Y,
-            'Direction': 'North'
-        };
-    }else if(rand <= (room.Width + room.Height + 1)){
-        return {
-            'X': room.X + room.Width,
-            'Y': room.Y + (rand - room.Width - 1),
-            'Direction': 'East'
-        };
-    }else if(rand <= (2*room.Width + room.Height + 2)){
-        return {
-            'X': room.X + room.Width - (rand - room.Width - room.Height - 2),
-            'Y': room.Y + room.Height,
-            'Direction': 'South'
-        };
-    }else{
-        return {
-            'X': room.X,
-            'Y': room.Y + room.Height - (rand - 2*room.Width - room.Height - 3),
-            'Direction': 'West'
-        };
-    }
+    var rand = nextInt(0, room.NumRoomPositions - 1);
+    return GetPointFromPosition(room, rand);
 }
 
 function RoomFactory(x, y, w, h){
@@ -225,8 +384,38 @@ function RoomFactory(x, y, w, h){
         'Y': y,
         'Width': w,
         'Height': h,
-        'Corridors': []
+        'Corridors': [],
+        'NumRoomPositions': (2*w + 2*h + 4),
     };
+}
+
+function GetPointFromPosition(room, position){
+    position = position % room.NumRoomPositions;
+    if(position <= room.Width){
+        return {
+            'X': room.X + position,
+            'Y': room.Y,
+            'Direction': 'North'
+        };
+    }else if(position <= (room.Width + room.Height + 1)){
+        return {
+            'X': room.X + room.Width,
+            'Y': room.Y + (position - room.Width - 1),
+            'Direction': 'East'
+        };
+    }else if(position <= (2*room.Width + room.Height + 2)){
+        return {
+            'X': room.X + room.Width - (position - room.Width - room.Height - 2),
+            'Y': room.Y + room.Height,
+            'Direction': 'South'
+        };
+    }else{
+        return {
+            'X': room.X,
+            'Y': room.Y + room.Height - (position - 2*room.Width - room.Height - 3),
+            'Direction': 'West'
+        };
+    }
 }
 
 //Copies the list and shuffles the copy before returning

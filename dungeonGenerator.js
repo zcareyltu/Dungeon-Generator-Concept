@@ -454,6 +454,17 @@ function RenderDungeon(){
             color
         );
     }
+    for(var i in corridors){
+        var corridor = corridors[i];
+        var color = graphics.cellColor;
+        g.fillRect(
+            corridor.X * cellSize + offset.X,
+            corridor.Y * cellSize + offset.Y,
+            corridor.Width * cellSize,
+            corridor.Height * cellSize,
+            color
+        );
+    }
     HTML.displayCanvas(canvas, "body");
 }
 
@@ -470,6 +481,17 @@ function getDungeonBounds(){
 
         if(room.X < left) left = room.X;
         if(room.Y < top) top = room.Y;
+        if(R > right) right = R;
+        if(B > bottom) bottom = B;
+    }
+
+    for(var i in corridors){
+        var corridor = corridors[i];
+        var R = corridor.X + corridor.Width;
+        var B = corridor.Y + corridor.Height;
+
+        if(corridor.X < left) left = corridor.X;
+        if(corridor.Y < top) top = corridor.Y;
         if(R > right) right = R;
         if(B > bottom) bottom = B;
     }

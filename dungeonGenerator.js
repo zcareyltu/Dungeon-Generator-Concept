@@ -10,7 +10,8 @@ var graphics = {
     cellSize: 15, //cell size in pixels
     baseColor: [0, 0, 0],
     cellColor: [255, 255, 255],
-    startColor: [0, 255, 0]
+    startColor: [0, 255, 0],
+    corridorColor: [175, 175, 175]
 };
 
 var options = {
@@ -78,37 +79,81 @@ function PlaceCorridor(room){
                     //NOTE if raycast hits something, be sure the new connection is also meets the start point conditions
                     if('Corridors' in hitLeft.Hit){
                         //We hit a room!
-                        if(isValidRoomCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
-                            var x = Math.min(point.X, nextPoint.X, hitLeft.X, hitRight.X);
-                            var y = Math.min(point.Y, nextPoint.Y, hitLeft.Y, hitRight.Y);
-                            var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.X));
-                            var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Y));
+                        //make sure it doesn't already have a connection to this room
+                        if(!isObjectInList(room.Connections, hitLeft.Hit)){
+                            if(isValidRoomCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
+                                var x = Math.min(point.X, nextPoint.X, hitLeft.Point.X, hitRight.Point.X);
+                                var y = Math.min(point.Y, nextPoint.Y, hitLeft.Point.Y, hitRight.Point.Y);
+                                var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.Point.X));
+                                var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Point.Y));
 
-                            var corridor = CorridorFactory(x, y, w, h);
-                            corridors.push(corridor);
-                            room.Corridors.push(corridor);
-                            return true;
+                                var corridor = CorridorFactory(x, y, w, h);
+                                corridor.Connections.push(room);
+                                corridor.Connections.push(hitLeft.Hit);
+                                
+                                room.Corridors.push(corridor);
+                                room.Connections.push(hitLeft.Hit);
+
+                                hitLeft.Hit.Corridors.push(corridor);
+                                hitLeft.Hit.Connections.push(room);
+
+                                corridors.push(corridor);
+
+                                return true;
+                            }
                         }
                     }else{
                         //We hit a corridor!
-                        if(isValidCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
-                            var x = Math.min(point.X, nextPoint.X, hitLeft.X, hitRight.X);
-                            var y = Math.min(point.Y, nextPoint.Y, hitLeft.Y, hitRight.Y);
-                            var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.X));
-                            var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Y));
+                        //Make sure none of it's connections is already connected to this room.
+                        var connected = false;
+                        for(var j in hitLeft.Hit.Connections){
+                            var hit = hitLeft.Hit.Connections[j];
+                            if(isObjectInList(room.Connections, hit)){
+                                connected = true;
+                                break;
+                            }
+                        }
 
-                            var corridor = CorridorFactory(x, y, w, h);
-                            corridors.push(corridor);
-                            room.Corridors.push(corridor);
-                            return true;
-                        } 
+                        if(!connected){
+                            if(isValidCorridor(hitLeft.Hit, hitLeft.Point, hitRight.Point)){
+                                var x = Math.min(point.X, nextPoint.X, hitLeft.Point.X, hitRight.Point.X);
+                                var y = Math.min(point.Y, nextPoint.Y, hitLeft.Point.Y, hitRight.Point.Y);
+                                var w = Math.max(Math.abs(point.X - nextPoint.X), Math.abs(point.X - hitLeft.Point.X));
+                                var h = Math.max(Math.abs(point.Y - nextPoint.Y), Math.abs(point.Y - hitLeft.Point.Y));
+
+                                var corridor = CorridorFactory(x, y, w, h);
+                                corridor.Connections = hitLeft.Hit.Connections.concat(room);
+
+                                room.Corridors.push(corridor);
+                                room.Connections = room.Connections.concat(hitLeft.Hit.Connections);
+
+                                hitLeft.Hit.Connections.push(room);
+                                for(var j in hitLeft.Hit.Connections){
+                                    var room2 = hitLeft.Hit.Connections[j];
+                                    room2.Connections.push(room);
+                                }
+
+                                corridors.push(corridor);
+
+                                return true;
+                            } 
+                        }
                     }
                 }
             }
         }
         point = nextPoint;
-    }while(point != startPoint); //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
+    }while((point.X != startPoint.X) || (point.Y != startPoint.Y) || (point.Direction != startPoint.Direction)); //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
     
+    return false;
+}
+
+function isObjectInList(list, obj){
+    for(var i in list){
+        if(list[i] === obj){
+            return true;
+        }
+    }
     return false;
 }
 
@@ -126,7 +171,7 @@ function isValidRoomCorridor(room, p1, p2){
             var x2 = Math.max(p1.X, p2.X);
 
             var y = (p1.Direction == "North") ? (corridor.Y + corridor.Height) : corridor.Y;
-            if((y == p1.Y) && (x1 < corridor.X + corridor.Width + options.minCorridorGap) && (x2 > corridor.X - options.minCorridorGap)){
+            if((y == p1.Y) && (x1 < (corridor.X + corridor.Width + options.minCorridorGap)) && (x2 > (corridor.X - options.minCorridorGap))){
                 return false;
             }
         }else{
@@ -134,7 +179,7 @@ function isValidRoomCorridor(room, p1, p2){
             var y2 = Math.max(p1.Y, p2.Y);
 
             var x = (p1.Direction == "West") ? (corridor.X + corridor.Width) : corridor.X;
-            if((x == p1.X) && (y1 < corridor.Y + corridor.Height + options.minCorridorGap) && (y2 > corridor.Y - minCorridorGap)){
+            if((x == p1.X) && (y1 < (corridor.Y + corridor.Height + options.minCorridorGap)) && (y2 > (corridor.Y - options.minCorridorGap))){
                 return false;
             }
         }
@@ -200,6 +245,53 @@ function raycast(startPoint){
 
     for(var i in corridors){
         var corridor = corridors[i];
+        if(startPoint.Direction == "North"){
+            var y = corridor.Y + corridor.Height;
+            if((corridor.X <= startPoint.X) && ((corridor.X + corridor.Width) >= startPoint.X) && (y < startPoint.Y)){
+                if(!closestHit || (y > closestPoint.Y)){
+                    closestHit = corridor;
+                    closestPoint = {
+                        'X': startPoint.X,
+                        'Y': y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "South"){
+            var y = corridor.Y;
+            if((corridor.X <= startPoint.X) && ((corridor.X + corridor.Width) >= startPoint.X) && (y > startPoint.Y)){
+                if(!closestHit || (y < closestPoint.Y)){
+                    closestHit = corridor;
+                    closestPoint = {
+                        'X': startPoint.X,
+                        'Y': y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "West"){
+            var x = corridor.X + corridor.Width;
+            if((corridor.Y <= startPoint.Y) && ((corridor.Y + corridor.Height) >= startPoint.Y) && (x < startPoint.X)){
+                if(!closestHit || (x > closestPoint.X)){
+                    closestHit = corridor;
+                    closestPoint = {
+                        'X': x,
+                        'Y': startPoint.Y
+                    };
+                }
+            }
+        }else if(startPoint.Direction == "East"){
+            var x = corridor.X;
+            if((corridor.Y <= startPoint.Y) && ((corridor.Y + corridor.Height) >= startPoint.Y) && (x > startPoint.X)){
+                if(!closestHit || (x < closestPoint.X)){
+                    closestHit = corridor;
+                    closestPoint = {
+                        'X': x,
+                        'Y': startPoint.Y
+                    };
+                }
+            }
+        }else{
+            return null;
+        }
     }
 
     if(!closestPoint){
@@ -233,7 +325,8 @@ function CorridorFactory(x, y, width, height){
         'X': x,
         'Y': y,
         'Width': width,
-        'Height': height
+        'Height': height,
+        'Connections': []
     };
 }
 
@@ -385,6 +478,7 @@ function RoomFactory(x, y, w, h){
         'Width': w,
         'Height': h,
         'Corridors': [],
+        'Connections': [],
         'NumRoomPositions': (2*w + 2*h + 4),
     };
 }
@@ -456,7 +550,7 @@ function RenderDungeon(){
     }
     for(var i in corridors){
         var corridor = corridors[i];
-        var color = graphics.cellColor;
+        var color = graphics.corridorColor;
         g.fillRect(
             corridor.X * cellSize + offset.X,
             corridor.Y * cellSize + offset.Y,

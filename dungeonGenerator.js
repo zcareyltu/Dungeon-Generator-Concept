@@ -141,11 +141,147 @@ function PlaceCorridor(room){
                     }
                 }
             }
+
+            //If raycasting failed, attempt an angle corridor before continuing
+            //if(attemptAngleCorridor(room, point, nextPoint, hitLeft, hitRight)) return true;
         }
         point = nextPoint;
     }while((point.X != startPoint.X) || (point.Y != startPoint.Y) || (point.Direction != startPoint.Direction)); //NOTE when moving around clockwise, if original pos is found again impossible to add more corridors, early exit.
     
     return false;
+}
+
+//TODO ensure corridors use the minGap option for checking distance from ALL rooms!
+function attemptAngleCorridor(room, point, nextPoint, hitLeft, hitRight){
+    var maxDist = Math.min(hitLeft ? hitLeft.Distance : options.maxCorridorLength, hitRight ? hitRight.Distance : options.maxCorridorLength, options.maxCorridorLength);
+    var angles = [];
+    for(var dist = options.minCorridorGap + 1; dist < maxDist; dist++){
+        if(point.Direction == "North"){
+            //Raycast right
+            var rayLeft = raycast(RotateCW(moveInDirection(nextPoint, dist)));
+            var rayRight = raycast(RotateCW(moveInDirection(nextPoint, dist - 1)));
+            if(rayLeft && rayRight && rayLeft.Hit == rayRight.Hit){
+                //I'm ignoring validation for now to keep this simple as a proof of concept
+                angles.push({
+                    'Base': CorridorFactory(point.X, point.Y - dist, nextPoint.X - point.X, dist),
+                    'Angle': CorridorFactory(nextPoint.X, nextPoint.Y - dist, rayLeft.Distance, nextPoint.X - point.X),
+                    'Hit': rayLeft.Hit
+                });
+            }
+
+            //Raycast left
+            rayLeft = raycast(RotateCCW(moveInDirection(point, dist - 1)));
+            rayRight = raycast(RotateCCW(moveInDirection(point, dist)));
+            if(rayLeft && rayRight && rayLeft.Hit == rayRight.Hit){
+                //I'm ignoring validation for now to keep this simple as a proof of concept
+                angles.push({
+                    'Base': CorridorFactory(point.X, point.Y - dist, nextPoint.X - point.X, dist),
+                    'Angle': CorridorFactory(point.X - rayRight.Distance, point.Y - dist, rayRight.Distance, nextPoint.X - point.X),
+                    'Hit': rayRight.Hit
+                });
+            }
+        }else if(point.Direction == 'West'){
+
+        }else if(point.Direction == 'South'){
+
+        }else if(point.Direction == 'East'){
+            
+        }
+    }
+
+    if(angles.length == 0){
+        return false;
+    }else{
+        console.log(angles);
+    }
+}
+
+function angleGeneric(){
+    
+}
+
+function moveInDirection(point, distance){
+    if(point.Direction == "North"){
+        return {
+            'X': point.X,
+            'Y': point.Y - distance,
+            'Direction': point.Direction
+        };
+    } else  if(point.Direction == "East"){
+        return {
+            'X': point.X + distance,
+            'Y': point.Y,
+            'Direction': point.Direction
+        };
+    } else if(point.Direction == "South"){
+        return {
+            'X': point.X,
+            'Y': point.Y + distance,
+            'Direction': point.Direction
+        };
+    } else if(point.Direction == "West"){
+        return {
+            'X': point.X - distance,
+            'Y': point.Y,
+            'Direction': point.Direction
+        };
+    }
+}
+
+function RotateCW(point){
+    if(point.Direction == "North"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'East'
+        };
+    }else if(point.Direction == "East"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'South'
+        };
+    } else if(point.Direction == "South"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'West'
+        };
+    } else if(point.Direction == "West"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'North'
+        };
+    }
+}
+
+function RotateCCW(point){
+    if(point.Direction == "North"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'West'
+        };
+    }else if(point.Direction == "East"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'North'
+        };
+    } else if(point.Direction == "South"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'East'
+        };
+    } else if(point.Direction == "West"){
+        return {
+            'X': point.X,
+            'Y': point.Y,
+            'Direction': 'South'
+        };
+    }
 }
 
 function isObjectInList(list, obj){
@@ -320,6 +456,15 @@ function IsValidCorridorLocation(room, position){
     return true;
 }
 */
+function CorridorFromPoints(p1, p2, p3){
+    var x = Math.min(p1.X, p2.X, p3.X);
+    var y = Math.min(p1.Y, p2.Y, p3.Y);
+    var x2 = Math.max(p1.X, p2.X, p3.X);
+    var y2 = Math.max(p1.Y, p2.Y, p3.Y);
+
+    return CorridorFactory(x, y, x2 - x, y2 - y);
+}
+
 function CorridorFactory(x, y, width, height){
     return {
         'X': x,
@@ -345,17 +490,26 @@ function GenerateRooms(){
 
         var bestScore = undefined;
         var bestPos = undefined;
+        var bestCorridor = undefined;
         for (var j = 0; j < options.numPlacementTries; j++){
-            var pos = PlaceRoom(nextRoom);
+            var values = PlaceRoom(nextRoom);
+            var pos = values.Position;
+            var corridor = values.Corridor;
             var score = roomScore(nextRoom);
             if((j == 0) || (score < bestScore)){
                 bestPos = pos;
                 bestScore = score;
+                bestCorridor = corridor;
             }
         }
         nextRoom.X = bestPos.X;
         nextRoom.Y = bestPos.Y;
+        var otherRoom = bestCorridor.Connections[0];
+        bestCorridor.Connections.push(nextRoom);
+        nextRoom.Connections.push(otherRoom);
+        otherRoom.Connections.push(nextRoom);
         rooms.push(nextRoom);
+        corridors.push(bestCorridor);
     }
 }
 
@@ -366,12 +520,36 @@ function PlaceRoom(room){
         var firstPoint = randomPerimeter(baseRoom);
         var point = firstPoint;
         do{
-            var pos = getAdjustedRoomPos(point, room);
+            var maxDistance = options.maxDistance;
+            var padding = options.padding;
+            var distance = nextInt(padding, maxDistance)
+
+            var pos = getAdjustedRoomPos(point, distance, room);
             room.X = pos.X;
             room.Y = pos.Y;
             if(!roomCollides(room)){
                 //Room fits!
-                return pos;
+                var thirdPoint = moveInDirection(RotateCW(point), 1);
+                var corridor = CorridorFromPoints(point, moveInDirection(point, distance), thirdPoint);
+                /*if(point.Direction == 'North'){
+                    corridor = CorridorFactory(point.X, point.Y - distance, 1, distance);
+                } else if(point.Direction == 'South'){
+                    corridor = CorridorFactory(point.X, point.Y, 1, distance);
+                } else if(point.Direction == 'East') {
+                    corridor = CorridorFactory(point.X, point.Y, distance, 1);
+                } else if(point.Direction == 'West') {
+                    corridor = CorridorFactory(point.X - distance, point.Y, distance, 1);
+                }else{
+                    console.log(point.Direction);
+                }*/
+                corridor.Connections.push(baseRoom);
+                console.log(point);
+                console.log(corridor);
+
+                return {
+                    'Position': pos,
+                    'Corridor': corridor
+                };
             }
 
             point = nextPerimeter(baseRoom, point);
@@ -415,24 +593,22 @@ function RoomsCollide(room1, room2){
 }
 
 //Returns a random position for a room based on a base point with direction
-function getAdjustedRoomPos(point, room){
-    var maxDistance = options.maxDistance;
-    var padding = options.padding;
+function getAdjustedRoomPos(point, distance, room){
     var x = point.X;
     var y = point.Y;
 
     if(point.Direction == 'North'){
-        y = y - room.Height - nextInt(padding, maxDistance);
-        x -= nextInt(0, room.Width);
+        y = y - room.Height - distance;
+        x -= nextInt(0, room.Width - 1);
     } else if(point.Direction == 'South'){
-        y = y + nextInt(padding, maxDistance);
-        x -= nextInt(0, room.Width);
+        y = y + distance;
+        x -= nextInt(0, room.Width - 1);
     } else if(point.Direction == 'East') {
-        x = x + nextInt(padding, maxDistance);
-        y -= nextInt(0, room.Height);
+        x = x + distance;
+        y -= nextInt(0, room.Height - 1);
     } else if(point.Direction == 'West') {
-        x = x - room.Width - nextInt(padding, maxDistance);
-        y -= nextInt(0, room.Height);
+        x = x - room.Width - distance;
+        y -= nextInt(0, room.Height - 1);
     }
 
     return {

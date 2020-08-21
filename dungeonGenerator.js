@@ -701,79 +701,10 @@ function RandomListCopy(list){
 }
 
 function RenderDungeon(){
-    var cellSize = graphics.cellSize;
-    var bounds = getDungeonBounds();
-    var width = (bounds.Width + options.padding*2 + 2) * cellSize;
-    var height = (bounds.Height + options.padding*2 + 2) * cellSize;
-    var offset = {
-        'X': (options.padding + 1 - bounds.Left) * cellSize,
-        'Y': (options.padding + 1 - bounds.Top) * cellSize
-    };
-    var canvas = HTML.generateCanvas(width, height);
-    var g = HTML.getGraphics(canvas);
-    g.fillRect(0, 0, width, height, graphics.baseColor);
-    for(var i in rooms){
-        var room = rooms[i];
-        var color = graphics.cellColor;
-        if(room['IsStart']) color = graphics.startColor;
-        g.fillRect(
-            room.X * cellSize + offset.X,
-            room.Y * cellSize + offset.Y,
-            room.Width * cellSize,
-            room.Height * cellSize,
-            color
-        );
-    }
-    for(var i in corridors){
-        var corridor = corridors[i];
-        var color = graphics.corridorColor;
-        g.fillRect(
-            corridor.X * cellSize + offset.X,
-            corridor.Y * cellSize + offset.Y,
-            corridor.Width * cellSize,
-            corridor.Height * cellSize,
-            color
-        );
-    }
-    HTML.displayCanvas(canvas, "body");
-}
-
-function getDungeonBounds(){
-    var left = Number.MAX_VALUE;
-    var right = Number.MIN_VALUE;
-    var top = Number.MAX_VALUE;
-    var bottom = Number.MIN_VALUE;
-    
-    for(var i in rooms){
-        var room = rooms[i];
-        var R = room.X + room.Width;
-        var B = room.Y + room.Height;
-
-        if(room.X < left) left = room.X;
-        if(room.Y < top) top = room.Y;
-        if(R > right) right = R;
-        if(B > bottom) bottom = B;
-    }
-
-    for(var i in corridors){
-        var corridor = corridors[i];
-        var R = corridor.X + corridor.Width;
-        var B = corridor.Y + corridor.Height;
-
-        if(corridor.X < left) left = corridor.X;
-        if(corridor.Y < top) top = corridor.Y;
-        if(R > right) right = R;
-        if(B > bottom) bottom = B;
-    }
-
-    return {
-        'Left': left,
-        'Right': right,
-        'Top': top,
-        'Bottom': bottom,
-        'Width': right - left,
-        'Height': bottom - top  
-    };
+    var renderer = GetDungeonRenderer();
+    renderer.renderRectangle(0, 0, 1, 1);
+    renderer.renderRectangle(1, 1, 1, 1);
+    renderer.render(graphics.cellSize);
 }
 
 //Returns a random number between min and max, inclusive

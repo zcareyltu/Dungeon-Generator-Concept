@@ -57,11 +57,16 @@ function GenerateRooms(){
         nextRoom.X = bestPos.X;
         nextRoom.Y = bestPos.Y;
         var otherRoom = bestCorridor.Connections[0];
+        var basePoints = bestCorridor.baseCorridors;
         bestCorridor.Connections.push(nextRoom);
         nextRoom.Connections.push(otherRoom);
         otherRoom.Connections.push(nextRoom);
-        rooms.push(nextRoom);
+        SealRoom(nextRoom);
         corridors.push(bestCorridor);
+        for(var j in basePoints){
+            otherRoom.Corridors.push(basePoints[j]);
+        }
+        renderer.renderCorridor(bestCorridor);
     }
 }
 
@@ -77,7 +82,7 @@ function PlaceRoom(room){
     var roomList = RandomListCopy(rooms);
     for(var i in roomList){
         var baseRoom = roomList[i];
-        var firstPos = nextInt(0, room.NumRoomPositions - 1);
+        var firstPos = nextInt(0, baseRoom.NumRoomPositions - 1);
         var pos = firstPos;
         
         do{
@@ -85,26 +90,69 @@ function PlaceRoom(room){
             var padding = options.padding;
             var distance = nextInt(padding, maxDistance)
 
-            var point1 = GetPointFromPosition(pos);
-            var point2 = GetPointFromPosition((pos + options.corridorWidth) % room.NumRoomPositions)
+            var point1 = GetPointFromPosition(baseRoom, pos);
+            var point2 = GetPointFromPosition(baseRoom, (pos + options.corridorWidth) % baseRoom.NumRoomPositions)
             //Check if the corridor will be valid
             if(point1.Direction != point2.Direction){
-                pos = (pos + 1) % room.NumRoomPositions;
+                pos = (pos + 1) % baseRoom.NumRoomPositions;
                 continue;
             }
 
             //Check other corridors and be sure they are far enough away
-            for(var j in corridors){
-                var corridor = corridors[j];
+            for(var j in baseRoom.Corridors){
+                var corridor = baseRoom.Corridors[j];
+                if( ((Math.abs(pos - corridor) < options.minCorridorGap) || (Math.abs((pos - baseRoom.NumRoomPositions) - corridor) < options.minCorridorGap))
+                    || ((Math.abs((pos + options.corridorWidth) % baseRoom.NumRoomPositions - corridor) < options.minCorridorGap) || (Math.abs(((pos + options.corridorWidth) % baseRoom.NumRoomPositions - baseRoom.NumRoomPositions) - corridor) < options.minCorridorGap))
+                ){
+                    //Too close!
+                    pos = (pos + 1) % baseRoom.NumRoomPositions;
+                    continue;
+                }
             }
 
-            var pos = getAdjustedRoomPos(point, distance, room);
-            room.X = pos.X;
-            room.Y = pos.Y;
+            var roomPos = getAdjustedRoomPos(point1, point2, distance, room);
+            room.X = roomPos.X;
+            room.Y = roomPos.Y;
             if(!roomCollides(room)){
                 //Room fits!
-                var thirdPoint = moveInDirection(RotateCW(point), 1);
-                var corridor = CorridorFromPoints(point, moveInDirection(point, distance), thirdPoint);
+                var point3 = moveInDirection(point1, distance);
+                var point4 = moveInDirection(point2, distance);
+                var corridor = GetRectFromPoints(point1, point2, point3);
+                corridor.Connections = [];
+                var baseCorridors = [];
+                //corridors.push(corridor);
+                var pos2 = (pos + options.corridorWidth) % baseRoom.NumRoomPositions;
+                for(var j = pos; j <= pos2; j++){
+                    baseCorridors.push(j);
+                }
+                if(pos2 < pos){
+                    for(var j = pos; j < baseRoom.NumRoomPositions; j++){
+                        baseCorridors.push(j);
+                    }
+                    for(var j = 0; j <= pos2; j++){
+                        baseCorridors.push(j);
+                    }
+                }
+
+                var hit1 = GetPositionFromPoint(room, point3);
+                var hit2 = GetPositionFromPoint(room, point4);
+                if(hit2 < hit1){
+                    var temp = hit2;
+                    hit2 = hit1;
+                    hit1 = temp;
+                }
+                if(Math.abs(hit1 - hit2) <= Math.abs(hit1 - (hit2 - room.NumRoomPositions))){
+                    for(var j = hit1; j <= hit2; j++){
+                        room.Corridors.push(j);
+                    }
+                }else{
+                    for(var j = hit2; j < room.NumRoomPositions; j++){
+                        room.Corridors.push(j);
+                    }
+                    for(var j = 0; j <= hit1; j++){
+                        room.Corridors.push(j);
+                    }
+                }
                 /*if(point.Direction == 'North'){
                     corridor = CorridorFactory(point.X, point.Y - distance, 1, distance);
                 } else if(point.Direction == 'South'){
@@ -117,20 +165,50 @@ function PlaceRoom(room){
                     console.log(point.Direction);
                 }*/
                 corridor.Connections.push(baseRoom);
-                console.log(point);
-                console.log(corridor);
+                //corridor.Connections.push(room);
+                //room.Connections.push(baseRoom);
+                //baseRoom.Connections.push(room);
 
                 return {
-                    'Position': pos,
-                    'Corridor': corridor
+                    'Position': roomPos,
+                    'Corridor': corridor,
+                    'BasePoints': baseCorridors
                 };
             }
 
-            pos = (pos + 1) % room.NumRoomPositions;
+            pos = (pos + 1) % baseRoom.NumRoomPositions;
         }while(pos != firstPos/*(point.X != firstPoint.X) || (point.Y != firstPoint.Y) || (point.Direction != firstPoint.Direction)*/);
     }
 
     throw 'A room SOMEHOW was unable to be placed. This should be impossible.';
+}
+
+function moveInDirection(point, distance){
+    if(point.Direction == "North"){
+        return {
+            'X': point.X,
+            'Y': point.Y - distance,
+            'Direction': point.Direction
+        };
+    } else  if(point.Direction == "East"){
+        return {
+            'X': point.X + distance,
+            'Y': point.Y,
+            'Direction': point.Direction
+        };
+    } else if(point.Direction == "South"){
+        return {
+            'X': point.X,
+            'Y': point.Y + distance,
+            'Direction': point.Direction
+        };
+    } else if(point.Direction == "West"){
+        return {
+            'X': point.X - distance,
+            'Y': point.Y,
+            'Direction': point.Direction
+        };
+    }
 }
 
 //Return a score for how well the room was placed
@@ -167,22 +245,22 @@ function RoomsCollide(room1, room2){
 }
 
 //Returns a random position for a room based on a base point with direction
-function getAdjustedRoomPos(point, distance, room){
-    var x = point.X;
-    var y = point.Y;
+function getAdjustedRoomPos(point1, point2, distance, room){
+    var x;
+    var y;
 
-    if(point.Direction == 'North'){
-        y = y - room.Height - distance;
-        x -= nextInt(0, room.Width - 1);
-    } else if(point.Direction == 'South'){
-        y = y + distance;
-        x -= nextInt(0, room.Width - 1);
-    } else if(point.Direction == 'East') {
-        x = x + distance;
-        y -= nextInt(0, room.Height - 1);
-    } else if(point.Direction == 'West') {
-        x = x - room.Width - distance;
-        y -= nextInt(0, room.Height - 1);
+    if(point1.Direction == 'North'){
+        y = point1.Y - room.Height - distance;
+        x = point1.X - nextInt(0, room.Width - (point2.X - point1.X));
+    } else if(point1.Direction == 'South'){
+        y = point1.Y + distance;
+        x = point2.X - nextInt(0, room.Width - (point1.X - point2.X));
+    } else if(point1.Direction == 'East') {
+        x = point1.X + distance;
+        y = point1.Y - nextInt(0, room.Height - (point2.Y - point1.Y));
+    } else if(point1.Direction == 'West') {
+        x = point1.X - room.Width - distance;
+        y = point2.Y - nextInt(0, room.Height - (point1.Y - point2.Y));
     }
 
     return {
@@ -192,7 +270,7 @@ function getAdjustedRoomPos(point, distance, room){
 }
 
 //Returns the next perimeter point, moving clockwise around the room
-function nextPerimeter(room, point){
+/*function nextPerimeter(room, point){
     var copy = {};
     copy.X = point.X;
     copy.Y = point.Y;
@@ -213,7 +291,7 @@ function nextPerimeter(room, point){
     }
 
     return copy;
-}
+}*/
 
 //Returns a random point on the perimeter of the room and a direction
 function randomPerimeter(room){
@@ -232,7 +310,7 @@ function RoomFactory(x, y, w, h){
         'NumRoomPositions': (2*w + 2*h + 4),
     };
 }
-/*
+
 function GetPointFromPosition(room, position){
     position = position % room.NumRoomPositions;
     if(position <= room.Width){
@@ -262,6 +340,32 @@ function GetPointFromPosition(room, position){
     }
 }
 
+function GetPositionFromPoint(room, point){
+    if(point.Y == room.Y){
+        if((point.X == room.X) && (point.Direction == "West" || point.Direction == "East")){
+            return room.NumRoomPositions - 1;
+        }else if((point.X == (room.X + room.Width)) && (point.Direction == "West" || point.Direction == "East")){
+            return room.Width + 1;
+        }else{
+            return point.X - room.X;
+        }
+    }else if(point.X == (room.X + room.Width)){
+        if((point.Y == (room.Y + room.Height)) && (point.Direction == "North" || point.Direction == "South")){
+            return room.Width + room.Height + 2;
+        }else{
+            return room.Width + 1 + (point.Y - room.Y);
+        }
+    }else if(point.Y == (room.Y + room.Height)){
+        if((point.X == room.X) && (point.Direction == "West" || point.Direction == "East")){
+            return room.Width*2 + room.Height + 3;
+        }else{
+            return room.Width + room.Height + 2 + (room.Width - (point.X - room.X));
+        }
+    }else{
+        return room.Width*2 + room.Height + 3 + (room.Height - (point.Y - room.Y));
+    }
+}
+
 //Copies the list and shuffles the copy before returning
 function RandomListCopy(list){
     var newList = list.slice();
@@ -272,7 +376,7 @@ function RandomListCopy(list){
         newList[j] = temp;
     }
     return newList;
-}*/
+}
 
 //Optionally, p3 can be ommitted if the two points are known to be diagonal.
 function GetRectFromPoints(p1, p2, p3){
